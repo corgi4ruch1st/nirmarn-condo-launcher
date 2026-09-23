@@ -8,17 +8,26 @@
 <link rel="apple-touch-icon" href="../icon.png">
 <link rel="manifest" href="../manifest.json">
 <meta name="theme-color" content="#5b8def">
-<meta http-equiv="refresh" content="0; url=https://script.google.com/macros/s/AKfycbxbvh0R5nTwPk9wR_44_HB5neEnRyP30WDcGioaAkky1LKCkPCQ8JifRS05kqyb8E7U/exec?p=app">
 <style>
-  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    font-family:'Mali',system-ui,sans-serif; background:linear-gradient(180deg,#9fd3ff,#d9efff); color:#2b2d42; }
-  img { width:120px; height:120px; margin-bottom:16px; }
-  a { color:#2b2d42; font-weight:600; }
+  html, body { margin:0; height:100%; background:#fff5e8; }
+  /* เปิดแอปในกรอบเต็มจอ แทนการเด้งไปที่ script.google.com ตรง ๆ
+     เพราะ Google เติม /u/N/ ให้ลิงก์เวลาเบราว์เซอร์ล็อกอินหลายบัญชี แล้วแอปเปิดไม่ได้ */
+  iframe { position:fixed; inset:0; width:100%; height:100%; border:0; }
+  .fallback { position:fixed; left:0; right:0; bottom:0; padding:8px; text-align:center;
+    font:13px system-ui,sans-serif; background:rgba(255,255,255,.92); display:none; }
+  .fallback a { color:#2b2d42; font-weight:600; }
 </style>
 </head>
 <body>
-  <img src="../icon.png" alt="นิรมาน คอนโด">
-  <p>กำลังเปิดแอป...</p>
-  <p><a href="https://script.google.com/macros/s/AKfycbxbvh0R5nTwPk9wR_44_HB5neEnRyP30WDcGioaAkky1LKCkPCQ8JifRS05kqyb8E7U/exec?p=app">กดที่นี่ถ้าไม่เปิดอัตโนมัติ</a></p>
+  <iframe id="app" title="นิรมาน คอนโด" allow="clipboard-write"
+    src="https://script.google.com/macros/s/AKfycbxbvh0R5nTwPk9wR_44_HB5neEnRyP30WDcGioaAkky1LKCkPCQ8JifRS05kqyb8E7U/exec?p=app"></iframe>
+  <div class="fallback" id="fb">ถ้าหน้าแอปไม่ขึ้น
+    <a href="https://script.google.com/macros/s/AKfycbxbvh0R5nTwPk9wR_44_HB5neEnRyP30WDcGioaAkky1LKCkPCQ8JifRS05kqyb8E7U/exec?p=app" target="_top">กดเปิดแบบเต็มหน้าที่นี่</a></div>
+  <script>
+    // โชว์ลิงก์สำรองเฉพาะตอนกรอบโหลดไม่ขึ้นภายใน 20 วินาที
+    var loaded = false;
+    document.getElementById('app').onload = function () { loaded = true; };
+    setTimeout(function () { if (!loaded) document.getElementById('fb').style.display = 'block'; }, 20000);
+  </script>
 </body>
 </html>
