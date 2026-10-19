@@ -67,6 +67,9 @@
           e.source.postMessage({ condo: 'token', token: t }, e.origin);
         } else if (e.data.condo === 'user') {
           setUser(typeof e.data.email === 'string' && e.data.email ? e.data.email.toLowerCase() : null);
+        } else if (e.data.condo === 'push-show') {
+          try { localStorage.removeItem(HIDE_KEY); } catch (x) {}   // ผู้ใช้เผลอกด ✕ แล้วอยากได้แถบคืน
+          refreshBar();
         } else if (e.data.condo === 'push-status?') {
           pushState(function (st) { e.source.postMessage({ condo: 'push-status', state: st }, e.origin); });
         } else if (e.data.condo === 'set-token') {
