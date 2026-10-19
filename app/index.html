@@ -14,6 +14,12 @@
   .fallback { position:fixed; left:0; right:0; bottom:0; padding:8px; text-align:center;
     font:13px system-ui,sans-serif; background:rgba(255,255,255,.92); display:none; }
   .fallback a { color:#2b2d42; font-weight:600; }
+  #pushbar { position:fixed; left:8px; right:8px; bottom:8px; z-index:5; display:none; align-items:center; gap:8px;
+    padding:8px 10px; border-radius:12px; background:#2b2d42; color:#fff; font:14px system-ui,sans-serif; box-shadow:0 2px 10px rgba(0,0,0,.3); }
+  #pushbar span { flex:1; }
+  #pushbar button { border:0; border-radius:8px; padding:6px 12px; font:inherit; cursor:pointer; }
+  #pushbar .go { background:#ffd166; color:#2b2d42; font-weight:600; }
+  #pushbar .x { background:transparent; color:#fff; }
 </style>
 </head>
 <body>
@@ -24,12 +30,20 @@
     src="https://script.google.com/macros/s/AKfycbxbvh0R5nTwPk9wR_44_HB5neEnRyP30WDcGioaAkky1LKCkPCQ8JifRS05kqyb8E7U/exec?p=app"></iframe>
   <div class="fallback" id="fb">ถ้าหน้าแอปไม่ขึ้น
     <a href="https://script.google.com/macros/s/AKfycbxbvh0R5nTwPk9wR_44_HB5neEnRyP30WDcGioaAkky1LKCkPCQ8JifRS05kqyb8E7U/exec?p=app" target="_top">กดเปิดแบบเต็มหน้าที่นี่</a></div>
+  <div id="pushbar"><span id="pushmsg">🔔 รับแจ้งเตือนรายการต้องจ่ายที่มือถือเครื่องนี้</span>
+    <button class="go" id="pushgo">เปิด</button><button class="x" id="pushx" aria-label="ปิดแถบนี้">✕</button></div>
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     (function () {
       // ห้ามหน้านี้ถูกฝังในเว็บอื่น — กันเว็บอื่นมาขอ token การล็อกอิน
       if (window.top !== window) { document.body.innerHTML = ''; return; }
 
       var KEY = 'condo_token';
+      // OneSignal App ID (ไม่ใช่ความลับ) — เว้นว่าง = ปิดระบบแจ้งเตือน ; ใส่แล้วต้อง push ไฟล์นี้ขึ้น GitHub Pages
+      var ONESIGNAL_APP_ID = '';
+      var BASE = location.pathname.replace(/[^\/]*$/, '');   // เช่น /nirmarn-condo-launcher/app/
+      var HIDE_KEY = 'condo_push_hide', EMAIL_KEY = 'condo_push_email';
+      var OS = null, wantEmail = null;
       var frame = document.getElementById('app');
 
       // กรอบที่ไม่ส่งบัญชี Google ลืม storage ทุกครั้งที่ปิด → เก็บ token การล็อกอินไว้ที่หน้านี้แทน
@@ -51,6 +65,10 @@
           var t = null;
           try { t = localStorage.getItem(KEY); } catch (x) {}
           e.source.postMessage({ condo: 'token', token: t }, e.origin);
+        } else if (e.data.condo === 'user') {
+          setUser(typeof e.data.email === 'string' && e.data.email ? e.data.email.toLowerCase() : null);
+        } else if (e.data.condo === 'push-status?') {
+          pushState(function (st) { e.source.postMessage({ condo: 'push-status', state: st }, e.origin); });
         } else if (e.data.condo === 'set-token') {
           try {
             if (e.data.token) localStorage.setItem(KEY, String(e.data.token));
@@ -58,6 +76,49 @@
           } catch (x) {}
         }
       });
+
+      // ---------- แจ้งเตือนมือถือ (OneSignal) ----------
+      // OS.login(อีเมล) ผูกเครื่องนี้กับอีเมลผู้ใช้ → เซิร์ฟเวอร์ยิงหาด้วย external_id = อีเมล ; ออกจากระบบ = OS.logout()
+      var bar = document.getElementById('pushbar');
+      function supported() { return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window; }
+      function hidden() { try { return localStorage.getItem(HIDE_KEY) === '1'; } catch (x) { return false; } }
+      function pushState(cb) {
+        if (!ONESIGNAL_APP_ID) return cb('disabled');
+        if (!supported()) return cb('unsupported');
+        if (Notification.permission === 'denied') return cb('denied');
+        if (!OS) return cb('off');
+        cb(OS.User.PushSubscription.optedIn ? 'on' : 'off');
+      }
+      function refreshBar() {
+        pushState(function (st) {
+          // เสนอเปิดเฉพาะตอนล็อกอินอยู่ ยังไม่ได้เปิด และผู้ใช้ไม่ได้กดปิดแถบไว้
+          bar.style.display = (st === 'off' && wantEmail && !hidden()) ? 'flex' : 'none';
+        });
+      }
+      function setUser(email) {
+        wantEmail = email;
+        if (OS) { if (email) OS.login(email); else OS.logout(); }
+        refreshBar();
+      }
+      if (ONESIGNAL_APP_ID && supported()) {
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(function (O) {
+          O.init({ appId: ONESIGNAL_APP_ID, serviceWorkerPath: BASE.slice(1) + 'OneSignalSDKWorker.js', serviceWorkerParam: { scope: BASE } }).then(function () {
+            OS = O;
+            if (wantEmail) O.login(wantEmail);
+            O.User.PushSubscription.addEventListener('change', refreshBar);
+            refreshBar();
+          });
+        });
+        // ต้องกดจากหน้า launcher (top-level) เท่านั้น เบราว์เซอร์ถึงยอมให้ขอสิทธิ์แจ้งเตือน
+        document.getElementById('pushgo').onclick = function () {
+          if (OS) OS.Notifications.requestPermission().then(refreshBar);
+        };
+        document.getElementById('pushx').onclick = function () {
+          try { localStorage.setItem(HIDE_KEY, '1'); } catch (x) {}
+          bar.style.display = 'none';
+        };
+      }
 
       // โชว์ลิงก์สำรองเฉพาะตอนกรอบโหลดไม่ขึ้นภายใน 20 วินาที
       var loaded = false;
