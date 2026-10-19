@@ -112,7 +112,12 @@
         });
         // ต้องกดจากหน้า launcher (top-level) เท่านั้น เบราว์เซอร์ถึงยอมให้ขอสิทธิ์แจ้งเตือน
         document.getElementById('pushgo').onclick = function () {
-          if (OS) OS.Notifications.requestPermission().then(refreshBar);
+          var msg = document.getElementById('pushmsg');
+          if (!OS) { msg.textContent = '⏳ ระบบแจ้งเตือนยังโหลดไม่เสร็จ (หรือถูกบล็อกโดยตัวบล็อกโฆษณา) ลองใหม่อีกครั้ง'; return; }
+          // ขอสิทธิ์ (ถ้ายังไม่เคยอนุญาต) แล้วสมัครรับ — ถ้าเคยอนุญาตไว้แล้ว requestPermission ไม่ทำอะไร ต้อง optIn เอง
+          OS.Notifications.requestPermission().then(function () {
+            if (Notification.permission === 'granted' && !OS.User.PushSubscription.optedIn) return OS.User.PushSubscription.optIn();
+          }).then(refreshBar, function (err) { msg.textContent = '⚠️ เปิดไม่สำเร็จ: ' + err; });
         };
         document.getElementById('pushx').onclick = function () {
           try { localStorage.setItem(HIDE_KEY, '1'); } catch (x) {}
