@@ -43,7 +43,7 @@
       var ONESIGNAL_APP_ID = '235ecb25-4eb1-42bc-bcc3-275e445eb779';
       var BASE = location.pathname.replace(/[^\/]*$/, '');   // เช่น /nirmarn-condo-launcher/app/
       var HIDE_KEY = 'condo_push_hide', EMAIL_KEY = 'condo_push_email';
-      var OS = null, wantEmail = null;
+      var OS = null, wantEmail = null, initError = '';
       var frame = document.getElementById('app');
 
       // กรอบที่ไม่ส่งบัญชี Google ลืม storage ทุกครั้งที่ปิด → เก็บ token การล็อกอินไว้ที่หน้านี้แทน
@@ -111,12 +111,16 @@
             if (wantEmail) O.login(wantEmail);
             O.User.PushSubscription.addEventListener('change', refreshBar);
             refreshBar();
-          });
+          }, function (err) { initError = String(err && err.message || err); });
         });
         // ต้องกดจากหน้า launcher (top-level) เท่านั้น เบราว์เซอร์ถึงยอมให้ขอสิทธิ์แจ้งเตือน
         document.getElementById('pushgo').onclick = function () {
           var msg = document.getElementById('pushmsg');
-          if (!OS) { msg.textContent = '⏳ ระบบแจ้งเตือนยังโหลดไม่เสร็จ (หรือถูกบล็อกโดยตัวบล็อกโฆษณา) ลองใหม่อีกครั้ง'; return; }
+          if (!OS) {
+            msg.textContent = initError ? '⚠️ OneSignal เริ่มไม่ได้: ' + initError
+              : (window.OneSignalDeferred && !window.OneSignal ? '⚠️ โหลด OneSignal SDK ไม่ได้ (ตัวบล็อกโฆษณา/เครือข่าย?)' : '⏳ ระบบแจ้งเตือนกำลังเริ่ม ลองกดอีกครั้งใน 2-3 วินาที');
+            return;
+          }
           // ขอสิทธิ์ (ถ้ายังไม่เคยอนุญาต) แล้วสมัครรับ — ถ้าเคยอนุญาตไว้แล้ว requestPermission ไม่ทำอะไร ต้อง optIn เอง
           OS.Notifications.requestPermission().then(function () {
             if (Notification.permission === 'granted' && !OS.User.PushSubscription.optedIn) return OS.User.PushSubscription.optIn();
